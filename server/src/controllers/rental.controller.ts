@@ -182,7 +182,15 @@ export const createRentalRequest = async (req: CustomRequest, res: Response, nex
       'RENTAL_REQUEST',
       'New Rental Request',
       `${req.user.fullName} requested "${listing.title}": "${requestMessageText.substring(0, 60)}${requestMessageText.length > 60 ? '...' : ''}"`,
-      conversation.id
+      conversation.id,
+      {
+        itemTitle: listing.title,
+        senderName: req.user.fullName,
+        startDate: start,
+        endDate: end,
+        message: message || '',
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+      }
     );
 
     return res.status(201).json({
@@ -482,7 +490,13 @@ export const acceptRentalRequest = async (req: CustomRequest, res: Response, nex
         'REQUEST_REJECTED',
         'Request Rejected (Date Conflict)',
         `Your request for "${listing.title}" was automatically rejected because the owner accepted another request for overlapping dates.`,
-        confReq.id
+        confReq.id,
+        {
+          itemTitle: listing.title,
+          senderName: 'Owner',
+          reason: 'Owner accepted another request for overlapping dates.',
+          actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/explore`,
+        }
       );
     }
 
@@ -517,7 +531,14 @@ export const acceptRentalRequest = async (req: CustomRequest, res: Response, nex
       'REQUEST_ACCEPTED',
       'Rental Request Accepted',
       `Your request to rent "${listing.title}" has been accepted! You can now chat to coordinate pickup.`,
-      conversation.id
+      conversation.id,
+      {
+        itemTitle: listing.title,
+        senderName: req.user.fullName,
+        startDate: request.start_date,
+        endDate: request.end_date,
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/messages/${conversation.id}`,
+      }
     );
 
     return res.json({
@@ -583,7 +604,13 @@ export const rejectRentalRequest = async (req: CustomRequest, res: Response, nex
       'REQUEST_REJECTED',
       'Rental Request Rejected',
       notificationMessage,
-      request.id
+      request.id,
+      {
+        itemTitle: listing?.title || 'an item',
+        senderName: req.user.fullName,
+        reason: reason || undefined,
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/explore`,
+      }
     );
 
     return res.json({
@@ -652,10 +679,16 @@ export const cancelRentalRequest = async (req: CustomRequest, res: Response, nex
     const senderName = req.user.fullName;
     await createNotification(
       recipient,
-      'REQUEST_REJECTED',
+      'RENTAL_CANCELLED',
       'Rental Request Cancelled',
       `The rental request for "${listing?.title || 'an item'}" has been cancelled by ${senderName}.`,
-      request.id
+      request.id,
+      {
+        itemTitle: listing?.title || 'an item',
+        senderName,
+        reason: `Cancelled by ${senderName}`,
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+      }
     );
 
     return res.json({
@@ -770,7 +803,12 @@ export const handoverRentalRequest = async (req: CustomRequest, res: Response, n
       'RENTAL_REMINDER',
       'Rental Active (Handover Confirmed)',
       `Handover for "${listing?.title || 'your item'}" is confirmed. Your rental is now ACTIVE! Keep your Return OTP safe for when returning the product.`,
-      request.id
+      request.id,
+      {
+        itemTitle: listing?.title || 'an item',
+        senderName: req.user.fullName,
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+      }
     );
 
     return res.json({
@@ -851,7 +889,12 @@ export const completeRentalRequest = async (req: CustomRequest, res: Response, n
       'RENTAL_COMPLETED',
       'Rental Completed',
       `Your rental of "${listing?.title || 'the item'}" has been marked COMPLETED. Please write a review for the owner!`,
-      request.id
+      request.id,
+      {
+        itemTitle: listing?.title || 'the item',
+        senderName: req.user.fullName,
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+      }
     );
 
     // Notify owner
@@ -860,7 +903,12 @@ export const completeRentalRequest = async (req: CustomRequest, res: Response, n
       'RENTAL_COMPLETED',
       'Rental Completed',
       `You marked the rental of "${listing?.title || 'your item'}" as COMPLETED. Please rate the renter!`,
-      request.id
+      request.id,
+      {
+        itemTitle: listing?.title || 'your item',
+        senderName: 'Rentora System',
+        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+      }
     );
 
     return res.json({

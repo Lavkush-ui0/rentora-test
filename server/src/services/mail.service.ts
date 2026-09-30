@@ -178,3 +178,219 @@ export const sendOTPEmail = async (
     logger.warn(`🔑 [Rentora ${isLogin ? 'Login' : 'Signup'} OTP Fallback (SMTP Error)] To: ${email} | Verification Code: ${otp}`);
   }
 };
+
+export interface RentalEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  type: 'RENTAL_REQUEST' | 'REQUEST_ACCEPTED' | 'REQUEST_REJECTED' | 'RENTAL_CANCELLED' | 'RENTAL_REMINDER' | 'RENTAL_COMPLETED' | string;
+  itemTitle: string;
+  senderName: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  message?: string;
+  reason?: string;
+  actionUrl?: string;
+}
+
+/**
+ * Sends a rich email notification to a user for rental request events (offline notification).
+ */
+export const sendRentalNotificationEmail = async (data: RentalEmailData) => {
+  const {
+    recipientEmail,
+    recipientName,
+    type,
+    itemTitle,
+    senderName,
+    startDate,
+    endDate,
+    message,
+    reason,
+    actionUrl = `${config.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+  } = data;
+
+  if (!recipientEmail) {
+    logger.warn('[Mail Service] Cannot send rental email without recipient email address');
+    return;
+  }
+
+  let subject = `Rentora Notification: ${itemTitle}`;
+  let title = 'Rental Notification';
+  let badgeText = 'Rental Update';
+  let badgeColor = '#4f46e5';
+  let summaryText = '';
+
+  const formatPeriod = () => {
+    if (!startDate || !endDate) return null;
+    try {
+      const s = new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const e = new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `${s} to ${e}`;
+    } catch {
+      return null;
+    }
+  };
+
+  const rentalPeriod = formatPeriod();
+
+  switch (type) {
+    case 'RENTAL_REQUEST':
+      subject = `📬 New Rental Request for "${itemTitle}" on Rentora`;
+      title = 'You Received a Rental Request!';
+      badgeText = 'New Request';
+      badgeColor = '#4f46e5';
+      summaryText = `<strong>${senderName}</strong> has sent you a request to rent <strong>"${itemTitle}"</strong>. Review the request details below and respond on Rentora.`;
+      break;
+
+    case 'REQUEST_ACCEPTED':
+      subject = `🎉 Great News! Rental Request Accepted for "${itemTitle}"`;
+      title = 'Rental Request Accepted!';
+      badgeText = 'Request Accepted';
+      badgeColor = '#16a34a';
+      summaryText = `Good news! <strong>${senderName}</strong> accepted your rental request for <strong>"${itemTitle}"</strong>. You can now chat to coordinate item pickup.`;
+      break;
+
+    case 'REQUEST_REJECTED':
+      subject = `Update on your rental request for "${itemTitle}"`;
+      title = 'Rental Request Update';
+      badgeText = 'Request Declined';
+      badgeColor = '#dc2626';
+      summaryText = reason
+        ? `Your request for <strong>"${itemTitle}"</strong> could not be accepted by <strong>${senderName}</strong>. Reason: <em>${reason}</em>`
+        : `Your request for <strong>"${itemTitle}"</strong> was declined by <strong>${senderName}</strong>. You can browse other available items on campus.`;
+      break;
+
+    case 'RENTAL_CANCELLED':
+      subject = `Rental Request Cancelled: "${itemTitle}"`;
+      title = 'Rental Request Cancelled';
+      badgeText = 'Cancelled';
+      badgeColor = '#64748b';
+      summaryText = `The rental request for <strong>"${itemTitle}"</strong> has been cancelled by <strong>${senderName}</strong>.`;
+      break;
+
+    case 'RENTAL_REMINDER':
+      subject = `🔑 Rental Active: Handover Confirmed for "${itemTitle}"`;
+      title = 'Handover Confirmed — Rental Active';
+      badgeText = 'Active Rental';
+      badgeColor = '#d97706';
+      summaryText = `Item handover for <strong>"${itemTitle}"</strong> has been verified. Your rental is now in progress. Remember to return the item in good condition before the deadline.`;
+      break;
+
+    case 'RENTAL_COMPLETED':
+      subject = `✅ Rental Completed: "${itemTitle}"`;
+      title = 'Rental Completed!';
+      badgeText = 'Completed';
+      badgeColor = '#16a34a';
+      summaryText = `The rental for <strong>"${itemTitle}"</strong> has been marked COMPLETED. Please take a moment to rate and review your experience!`;
+      break;
+
+    default:
+      subject = `Rentora Notification: ${itemTitle}`;
+      title = 'Rental Notification';
+      summaryText = `Update regarding <strong>"${itemTitle}"</strong> from <strong>${senderName}</strong>.`;
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="display: inline-block; padding: 6px 14px; background-color: #f1f5f9; border-radius: 9999px; font-size: 12px; font-weight: 700; color: ${badgeColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+          ${badgeText}
+        </span>
+        <h2 style="color: #0f172a; margin: 12px 0 6px; font-size: 22px; font-weight: 800;">${title}</h2>
+        <p style="color: #64748b; font-size: 14px; margin: 0;">Hi ${recipientName}, you have an update on Rentora</p>
+      </div>
+
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0; font-size: 14px; line-height: 1.6;">
+        <p style="margin: 0 0 12px 0; color: #334155;">
+          ${summaryText}
+        </p>
+
+        <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-top: 12px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="color: #64748b; padding: 4px 0; width: 100px;">Item:</td>
+              <td style="color: #0f172a; font-weight: 600; padding: 4px 0;">${itemTitle}</td>
+            </tr>
+            <tr>
+              <td style="color: #64748b; padding: 4px 0;">User:</td>
+              <td style="color: #0f172a; font-weight: 600; padding: 4px 0;">${senderName}</td>
+            </tr>
+            ${rentalPeriod ? `
+            <tr>
+              <td style="color: #64748b; padding: 4px 0;">Period:</td>
+              <td style="color: #0f172a; font-weight: 600; padding: 4px 0;">${rentalPeriod}</td>
+            </tr>` : ''}
+            ${message ? `
+            <tr>
+              <td style="color: #64748b; padding: 4px 0; vertical-align: top;">Note:</td>
+              <td style="color: #334155; font-style: italic; padding: 4px 0;">"${message}"</td>
+            </tr>` : ''}
+          </table>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin: 28px 0 20px;">
+        <a href="${actionUrl}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">
+          Open Rentora & View Details →
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 24px; line-height: 1.5;">
+        You received this notification because of activity related to your Rentora account.<br/>
+        Rentora Student Rental Marketplace — NIET Greater Noida
+      </p>
+    </div>
+  `;
+
+  const plainText = `${title}\n\nHi ${recipientName},\n${summaryText.replace(/<[^>]*>?/gm, '')}\n\nItem: ${itemTitle}\nFrom: ${senderName}${rentalPeriod ? `\nDates: ${rentalPeriod}` : ''}${message ? `\nMessage: ${message}` : ''}\n\nView details: ${actionUrl}\n\nRentora — NIET Greater Noida`;
+
+  // Option 1: Send via Resend if API Key available
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const fromEmail = process.env.EMAIL_FROM || '"Rentora Notifications" <notifications@resend.dev>';
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [recipientEmail],
+          subject,
+          text: plainText,
+          html,
+        }),
+      });
+
+      if (res.ok) {
+        logger.info(`📧 Rental notification email dispatched to ${recipientEmail} via Resend (${type})`);
+        return;
+      }
+    } catch (err: any) {
+      logger.error(`❌ Resend rental notification error: ${err.message}`);
+    }
+  }
+
+  // Option 2: Send via SMTP
+  const smtpTransporter = getTransporter();
+  if (smtpTransporter) {
+    try {
+      await smtpTransporter.sendMail({
+        from: `"Rentora Notifications" <${config.SMTP_USER}>`,
+        to: recipientEmail,
+        subject,
+        text: plainText,
+        html,
+      });
+      logger.info(`📧 Rental notification email dispatched to ${recipientEmail} via SMTP (${type})`);
+      return;
+    } catch (smtpErr: any) {
+      logger.error(`❌ Failed to send rental notification via SMTP: ${smtpErr.message}`);
+    }
+  }
+
+  // Fallback log for development
+  logger.info(`📧 [Rental Email Fallback] To: ${recipientEmail} | Subject: ${subject} | Link: ${actionUrl}`);
+};
+

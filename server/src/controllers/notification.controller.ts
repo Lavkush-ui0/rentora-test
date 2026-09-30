@@ -108,3 +108,98 @@ export const markOneAsRead = async (req: CustomRequest, res: Response, next: Nex
     return next(error);
   }
 };
+
+/**
+ * Returns the VAPID public key so client can subscribe to PushManager
+ */
+export const getPushPublicKey = async (_req: any, res: Response) => {
+  const { getVapidPublicKey } = await import('../services/push.service');
+  return res.json({
+    success: true,
+    publicKey: getVapidPublicKey(),
+  });
+};
+
+/**
+ * Saves a browser push subscription for the authenticated user
+ */
+export const subscribePush = async (req: CustomRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw new CustomError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint) {
+      throw new CustomError('Valid push subscription object is required', 400, 'INVALID_SUBSCRIPTION');
+    }
+
+    const { savePushSubscription } = await import('../services/push.service');
+    const saved = await savePushSubscription(req.user._id, subscription);
+
+    if (!saved) {
+      throw new CustomError('Failed to save push subscription', 500, 'SAVE_FAILED');
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Push notification subscription registered successfully',
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Removes a browser push subscription
+ */
+export const unsubscribePush = async (req: CustomRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw new CustomError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const { endpoint } = req.body;
+    if (!endpoint) {
+      throw new CustomError('Push subscription endpoint is required', 400, 'ENDPOINT_REQUIRED');
+    }
+
+    const { removePushSubscription } = await import('../services/push.service');
+    await removePushSubscription(req.user._id, endpoint);
+
+    return res.json({
+      success: true,
+      message: 'Push subscription removed successfully',
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Sends an immediate test push notification to the user's active device
+ */
+export const sendTestPush = async (req: CustomRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw new CustomError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const { sendPushNotification } = await import('../services/push.service');
+    const count = await sendPushNotification(req.user._id, {
+      title: 'Rentora Push Active! 🚀',
+      body: `Hello ${req.user.fullName || 'there'}! You will now receive rental request updates even when Rentora is closed.`,
+      url: '/notifications',
+    });
+
+    return res.json({
+      success: true,
+      message: count > 0 
+        ? `Test notification sent to ${count} device(s)!` 
+        : 'Subscription received, but no active device connection found. Ensure notifications are allowed.',
+      deviceCount: count,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};

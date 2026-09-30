@@ -175,3 +175,14 @@ CREATE TABLE IF NOT EXISTS public.product_interchanges (
     rental_request_id UUID REFERENCES public.rental_requests(id) ON DELETE SET NULL
 );
 
+-- 13. Create Push Subscriptions Table (Web Push Offline Notifications)
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+
