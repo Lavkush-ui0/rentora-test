@@ -177,14 +177,30 @@ export const sendPushNotification = async (
     return 0;
   }
 
+  const baseUrl = config.CLIENT_URL || 'https://rentora.org.in';
+  let targetUrl = payload.url || '/messages';
+  if (targetUrl.startsWith('/')) {
+    targetUrl = `${baseUrl}${targetUrl}`;
+  } else if (targetUrl.includes('vercel.app')) {
+    try {
+      const parsed = new URL(targetUrl);
+      targetUrl = `${baseUrl}${parsed.pathname}${parsed.search}`;
+    } catch {
+      targetUrl = `${baseUrl}/messages`;
+    }
+  }
+
   const payloadString = JSON.stringify({
     title: payload.title,
     body: payload.body,
     icon: payload.icon || '/rentora-logo.png',
     badge: payload.badge || '/favicon-48x48.png',
-    url: payload.url || '/notifications',
+    url: targetUrl,
     tag: payload.tag || 'rentora-alert',
-    data: payload.data || {},
+    data: {
+      ...payload.data,
+      url: targetUrl,
+    },
   });
 
   let successful = 0;

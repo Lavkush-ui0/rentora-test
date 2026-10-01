@@ -1,11 +1,19 @@
 import env from './env';
 
+const resolveClientUrl = (url?: string): string => {
+  const clean = (url || '').trim().replace(/\/+$/, '');
+  if (!clean || clean.includes('vercel.app')) {
+    return 'https://rentora.org.in';
+  }
+  return clean;
+};
+
 export const config = {
   PORT: env.PORT,
   MONGODB_URI: env.MONGODB_URI,
   JWT_ACCESS_SECRET: env.JWT_ACCESS_SECRET,
   JWT_REFRESH_SECRET: env.JWT_REFRESH_SECRET,
-  CLIENT_URL: env.CLIENT_URL,
+  CLIENT_URL: resolveClientUrl(env.CLIENT_URL),
   ALLOWED_EMAIL_DOMAIN: env.ALLOWED_EMAIL_DOMAIN,
   SUPABASE_URL: env.SUPABASE_URL,
   SUPABASE_KEY: env.SUPABASE_KEY,

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createConversation,
   getConversations,
+  getConversationById,
   getMessages,
   sendMessage,
   markAsRead,
@@ -15,6 +16,7 @@ router.use(authenticateUser);
 
 router.post('/', createConversation);
 router.get('/', getConversations);
+router.get('/:id', getConversationById);
 router.get('/:id/messages', getMessages);
 router.post('/:id/messages', sendMessage);
 router.patch('/:id/read', markAsRead);

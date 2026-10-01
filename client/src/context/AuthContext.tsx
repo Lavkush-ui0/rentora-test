@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api, { setAccessToken } from '../services/api';
+import pushNotificationService from '../services/pushNotificationService';
 
 interface UserType {
   id: string;
@@ -70,6 +71,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.removeEventListener('auth_logout', handleLogoutEvent);
     };
   }, []);
+
+  // Whenever user is authenticated, ensure push subscription is registered for current domain (rentora.org.in)
+  useEffect(() => {
+    if (user?.id) {
+      pushNotificationService.syncSubscription().catch(() => {});
+    }
+  }, [user?.id]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);

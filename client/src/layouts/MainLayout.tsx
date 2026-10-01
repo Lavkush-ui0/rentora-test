@@ -8,6 +8,7 @@ import {
 import Navbar from '../components/Navbar';
 import MobileBottomNav from '../components/MobileBottomNav';
 import TestimonialPopup from '../components/TestimonialPopup';
+import NotificationPermissionBanner from '../components/NotificationPermissionBanner';
 import chatService from '../services/chatService';
 import { RentoraWordmark } from '../components/RentoraBrand';
 
@@ -343,6 +344,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
         {/* Classmate dynamic popup announcements */}
         <TestimonialPopup />
+
+        {/* Global notification permission prompt on initial website visit */}
+        <NotificationPermissionBanner />
 
       </div>
     </div>

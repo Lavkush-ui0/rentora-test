@@ -12,6 +12,7 @@ export const chatService = {
     return api.post('/conversations', { recipientId: recipientIdOrData, listingId, rentalRequestId });
   },
   getConversations: () => api.get('/conversations'),
+  getConversation: (conversationId: string) => api.get(`/conversations/${conversationId}`),
   getMessages: (conversationId: string) => api.get(`/conversations/${conversationId}/messages`),
   sendMessage: (conversationId: string, text: string) =>
     api.post(`/conversations/${conversationId}/messages`, { text }),

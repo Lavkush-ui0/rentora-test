@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { config } from '../config/config';
 import { getIO, getSocketIdByUser } from './socket.service';
 import { sendPushNotification } from './push.service';
 import { sendRentalNotificationEmail } from './mail.service';
@@ -80,17 +81,40 @@ export const createNotification = async (
 
     // 2. Dispatch Web Push notification (delivers to desktop/phone OS even when browser tab is closed)
     if (!meta?.skipPush) {
+      const baseUrl = config.CLIENT_URL || 'https://rentora.org.in';
+      let rawUrl = meta?.actionUrl;
+      if (!rawUrl) {
+        if (type === 'RENTAL_REQUEST' || type === 'REQUEST_ACCEPTED' || type === 'NEW_MESSAGE') {
+          rawUrl = relatedId ? `/messages/${relatedId}` : '/messages';
+        } else {
+          rawUrl = '/my-rentals';
+        }
+      }
+
+      let pushUrl = rawUrl;
+      if (pushUrl.startsWith('/')) {
+        pushUrl = `${baseUrl}${pushUrl}`;
+      } else if (pushUrl.includes('vercel.app')) {
+        try {
+          const parsed = new URL(pushUrl);
+          pushUrl = `${baseUrl}${parsed.pathname}${parsed.search}`;
+        } catch {
+          pushUrl = `${baseUrl}/messages`;
+        }
+      }
+
       sendPushNotification(targetUserId, {
         title,
         body: message,
         icon: '/rentora-logo.png',
         badge: '/favicon-48x48.png',
-        url: meta?.actionUrl || (relatedId ? `/messages/${relatedId}` : '/my-rentals'),
+        url: pushUrl,
         tag: `rentora-${type.toLowerCase()}`,
         data: {
           notificationId: notification.id,
           type,
           relatedId: relatedId ? relatedId.toString() : null,
+          url: pushUrl,
         },
       }).catch((pushErr) => {
         logger.warn(`[Notification Service] Push dispatch warning: ${pushErr.message || pushErr}`);

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Mail, Lock, User, BookOpen, AlertCircle, UserPlus, ArrowLeft, Home } from 'lucide-react';
+import { Mail, Lock, User, BookOpen, AlertCircle, UserPlus, ArrowLeft, Home, Bell, CheckCircle2, Package, MessageSquare, KeyRound, Loader2 } from 'lucide-react';
 import rentoraLogo from '../assets/rentora-logo.png';
 import logoName from '../assets/logo-name.png';
 import logoNameWhite from '../assets/logo-name-white.png';
 import api from '../services/api';
+import pushNotificationService from '../services/pushNotificationService';
 import { COURSES, BRANCHES_MAP, BRANCH_SPECIALIZATIONS_MAP, CAMPUS_LOCATIONS } from '../utils/constants';
 
 export const Register: React.FC = () => {
@@ -22,6 +23,10 @@ export const Register: React.FC = () => {
   const [timer, setTimer] = useState(60);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+
+  // Notification Permission Onboarding Step
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -102,7 +107,7 @@ export const Register: React.FC = () => {
         setTimer(60);
         setOtp(Array(6).fill(''));
       } else {
-        navigate('/home', { replace: true });
+        handlePostRegistrationFlow();
       }
     } catch (err: any) {
       if (!err.response) {
@@ -183,11 +188,31 @@ export const Register: React.FC = () => {
     setVerificationLoading(true);
     try {
       await verifyOTP(form.email, fullOtp);
-      navigate('/home', { replace: true });
+      handlePostRegistrationFlow();
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || 'Verification failed. Please try again.');
     } finally {
       setVerificationLoading(false);
+    }
+  };
+
+  const handlePostRegistrationFlow = () => {
+    if (pushNotificationService.isSupported() && pushNotificationService.getPermission() === 'default') {
+      setShowNotificationPrompt(true);
+    } else {
+      navigate('/home', { replace: true });
+    }
+  };
+
+  const handleEnableNotificationsFromRegister = async () => {
+    setNotifLoading(true);
+    try {
+      await pushNotificationService.subscribe();
+    } catch (err) {
+      console.warn('[Register] Error enabling notifications:', err);
+    } finally {
+      setNotifLoading(false);
+      navigate('/home', { replace: true });
     }
   };
 
@@ -236,7 +261,82 @@ export const Register: React.FC = () => {
 
       <div className="max-w-lg w-full bg-white dark:bg-slate-900 p-8 rounded-3xl border border-gray-100 dark:border-slate-800 shadow-2xl shadow-gray-200/50 dark:shadow-none animate-in fade-in zoom-in-95 duration-300">
 
-        {requiresVerification ? (
+        {showNotificationPrompt ? (
+          <div className="space-y-6 text-center animate-in fade-in zoom-in-95 duration-300 py-2">
+            <div className="relative mx-auto h-20 w-20 rounded-3xl bg-gradient-to-tr from-[#9E1B1B] to-red-600 flex items-center justify-center text-white shadow-xl shadow-red-500/25">
+              <Bell className="h-10 w-10 animate-bounce" />
+              <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-5 w-5 bg-amber-500 items-center justify-center text-[10px] font-bold text-white">
+                  ✓
+                </span>
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>Account Created Successfully!</span>
+              </div>
+              <h2 className="text-2xl font-black font-outfit text-gray-900 dark:text-gray-100">
+                Never Miss a Rental Update
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                Turn on notifications to get instant alerts on your phone or PC whenever a classmate requests your item or sends you a chat message.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-slate-800/60 rounded-2xl p-4 text-left space-y-3 border border-gray-100 dark:border-slate-800">
+              <div className="flex items-center space-x-3 text-xs text-gray-700 dark:text-gray-300">
+                <div className="p-2 rounded-xl bg-red-100 dark:bg-red-950/50 text-[#9E1B1B] dark:text-red-400 flex-shrink-0">
+                  <Package className="h-4 w-4" />
+                </div>
+                <span><strong>Instant Rental Requests:</strong> Know immediately when students want your gear.</span>
+              </div>
+              <div className="flex items-center space-x-3 text-xs text-gray-700 dark:text-gray-300">
+                <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                <span><strong>Live Student Chat:</strong> Coordinate safe handovers and campus meetups.</span>
+              </div>
+              <div className="flex items-center space-x-3 text-xs text-gray-700 dark:text-gray-300">
+                <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex-shrink-0">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <span><strong>Handover & Return OTPs:</strong> Secure confirmation codes right on your screen.</span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleEnableNotificationsFromRegister}
+                disabled={notifLoading}
+                className="w-full inline-flex items-center justify-center space-x-2 bg-[#9E1B1B] hover:bg-[#801414] active:scale-[0.98] text-white py-3.5 px-6 rounded-2xl text-sm font-bold shadow-lg shadow-red-500/20 transition-all disabled:opacity-60"
+              >
+                {notifLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Activating Notifications...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="h-4 w-4" />
+                    <span>Turn On Notifications & Continue</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/home', { replace: true })}
+                className="w-full text-xs font-bold text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300 py-2 transition-colors"
+              >
+                Skip for now & go to Home
+              </button>
+            </div>
+          </div>
+        ) : requiresVerification ? (
           <div className="space-y-6">
             <div className="text-center mb-6 flex flex-col items-center">
               <div className="inline-flex h-20 w-20 rounded-2xl bg-white border border-slate-200/60 items-center justify-center p-3 shadow-md mb-4 transition-transform hover:scale-105 overflow-hidden">

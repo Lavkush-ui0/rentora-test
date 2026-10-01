@@ -180,6 +180,75 @@ export const getConversations = async (req: CustomRequest, res: Response, next: 
   }
 };
 
+export const getConversationById = async (req: CustomRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw new CustomError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    const { id } = req.params;
+    const currentUserId = req.user._id;
+
+    const { data: c, error } = await supabase
+      .from('conversations')
+      .select('*, listing:listing_id(id, title, images, rental_price, price_unit)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !c) {
+      throw new CustomError('Conversation not found', 404, 'NOT_FOUND');
+    }
+
+    if (!c.participants.includes(currentUserId)) {
+      throw new CustomError('You are not authorized to access this conversation', 403, 'FORBIDDEN');
+    }
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name, avatar, rating_average, is_blocked')
+      .in('id', c.participants);
+
+    const { data: lastMsg } = c.last_message_id ? await supabase
+      .from('messages')
+      .select('*')
+      .eq('id', c.last_message_id)
+      .maybeSingle() : { data: null };
+
+    const populated = {
+      _id: c.id,
+      participants: (users || []).map((u: any) => ({
+        _id: u.id,
+        fullName: u.full_name,
+        avatar: u.avatar,
+        ratingAverage: Number(u.rating_average),
+        isBlocked: u.is_blocked,
+      })),
+      listing: c.listing ? {
+        _id: c.listing.id,
+        title: c.listing.title,
+        images: c.listing.images,
+        rentalPrice: Number(c.listing.rental_price),
+        priceUnit: c.listing.price_unit,
+      } : null,
+      lastMessage: lastMsg ? {
+        _id: lastMsg.id,
+        text: lastMsg.text,
+        sender: lastMsg.sender_id,
+        readAt: lastMsg.read_at,
+        createdAt: lastMsg.created_at,
+      } : null,
+      updatedAt: c.updated_at,
+    };
+
+    return res.json({
+      success: true,
+      conversation: populated,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const getMessages = async (req: CustomRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {

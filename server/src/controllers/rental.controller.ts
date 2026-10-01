@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { supabase } from '../config/supabase';
+import { config } from '../config/config';
 import { CustomRequest } from '../types';
 import { createNotification } from '../services/notification.service';
 import { getIO } from '../services/socket.service';
@@ -189,7 +190,7 @@ export const createRentalRequest = async (req: CustomRequest, res: Response, nex
         startDate: start,
         endDate: end,
         message: message || '',
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+        actionUrl: conversation?.id ? `${config.CLIENT_URL}/messages/${conversation.id}` : `${config.CLIENT_URL}/messages`,
       }
     );
 
@@ -495,7 +496,7 @@ export const acceptRentalRequest = async (req: CustomRequest, res: Response, nex
           itemTitle: listing.title,
           senderName: 'Owner',
           reason: 'Owner accepted another request for overlapping dates.',
-          actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/explore`,
+          actionUrl: `${config.CLIENT_URL}/explore`,
         }
       );
     }
@@ -537,7 +538,7 @@ export const acceptRentalRequest = async (req: CustomRequest, res: Response, nex
         senderName: req.user.fullName,
         startDate: request.start_date,
         endDate: request.end_date,
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/messages/${conversation.id}`,
+        actionUrl: conversation?.id ? `${config.CLIENT_URL}/messages/${conversation.id}` : `${config.CLIENT_URL}/messages`,
       }
     );
 
@@ -609,7 +610,7 @@ export const rejectRentalRequest = async (req: CustomRequest, res: Response, nex
         itemTitle: listing?.title || 'an item',
         senderName: req.user.fullName,
         reason: reason || undefined,
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/explore`,
+        actionUrl: `${config.CLIENT_URL}/explore`,
       }
     );
 
@@ -687,7 +688,7 @@ export const cancelRentalRequest = async (req: CustomRequest, res: Response, nex
         itemTitle: listing?.title || 'an item',
         senderName,
         reason: `Cancelled by ${senderName}`,
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+        actionUrl: `${config.CLIENT_URL}/my-rentals`,
       }
     );
 
@@ -807,7 +808,7 @@ export const handoverRentalRequest = async (req: CustomRequest, res: Response, n
       {
         itemTitle: listing?.title || 'an item',
         senderName: req.user.fullName,
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+        actionUrl: `${config.CLIENT_URL}/my-rentals`,
       }
     );
 
@@ -893,7 +894,7 @@ export const completeRentalRequest = async (req: CustomRequest, res: Response, n
       {
         itemTitle: listing?.title || 'the item',
         senderName: req.user.fullName,
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+        actionUrl: `${config.CLIENT_URL}/my-rentals`,
       }
     );
 
@@ -907,7 +908,7 @@ export const completeRentalRequest = async (req: CustomRequest, res: Response, n
       {
         itemTitle: listing?.title || 'your item',
         senderName: 'Rentora System',
-        actionUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}/my-rentals`,
+        actionUrl: `${config.CLIENT_URL}/my-rentals`,
       }
     );
 

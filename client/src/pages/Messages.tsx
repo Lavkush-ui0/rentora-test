@@ -70,7 +70,21 @@ export const Messages: React.FC = () => {
       return;
     }
     const convo = conversations.find((c) => c._id === conversationId);
-    if (convo) setActiveConvo(convo);
+    if (convo) {
+      setActiveConvo(convo);
+    } else {
+      // Direct load (e.g. from notification link): fetch single conversation
+      chatService
+        .getConversation(conversationId)
+        .then((res) => {
+          if (res.data?.success && res.data.conversation) {
+            setActiveConvo(res.data.conversation);
+          }
+        })
+        .catch((err) => {
+          console.warn('[Messages] Could not fetch single conversation:', err);
+        });
+    }
   }, [conversationId, conversations]);
 
   // Load messages when conversation changes

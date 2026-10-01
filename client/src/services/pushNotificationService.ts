@@ -104,10 +104,18 @@ export const pushNotificationService = {
         applicationServerKey: convertedKey as unknown as BufferSource,
       });
 
-      // 5. Send subscription to Rentora backend
-      await api.post('/notifications/push/subscribe', {
-        subscription: subscription.toJSON(),
-      });
+      // 5. Send subscription to Rentora backend if logged in
+      try {
+        await api.post('/notifications/push/subscribe', {
+          subscription: subscription.toJSON(),
+        });
+      } catch (backendErr: any) {
+        if (backendErr.response?.status === 401) {
+          console.log('[Push Service] Browser permission granted. Will sync to account once logged in/registered.');
+          return { success: true, message: 'Notifications enabled!' };
+        }
+        console.warn('[Push Service] Backend subscription warning:', backendErr);
+      }
 
       return { success: true, message: 'Push notifications successfully activated!' };
     } catch (error: any) {
@@ -159,6 +167,41 @@ export const pushNotificationService = {
         message: error.response?.data?.message || error.message || 'Failed to send test notification.',
       };
     }
+  },
+
+  /**
+   * If permission is already granted, ensures the service worker is registered
+   * under the active domain (e.g. rentora.org.in) and updates the subscription in the backend.
+   */
+  async syncSubscription(): Promise<boolean> {
+    if (!this.isSupported() || this.getPermission() !== 'granted') return false;
+    try {
+      const registration = await this.registerServiceWorker();
+      if (!registration) return false;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const keyRes = await api.get('/notifications/push/public-key');
+        const publicKey = keyRes.data?.publicKey;
+        if (!publicKey) return false;
+
+        const convertedKey = urlBase64ToUint8Array(publicKey);
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedKey as unknown as BufferSource,
+        });
+      }
+
+      if (subscription) {
+        await api.post('/notifications/push/subscribe', {
+          subscription: subscription.toJSON(),
+        });
+        return true;
+      }
+    } catch (err) {
+      console.warn('[Push Service] Auto-sync subscription warning:', err);
+    }
+    return false;
   },
 };
 
